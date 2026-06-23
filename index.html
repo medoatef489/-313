@@ -52,7 +52,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2.2rem;
+            margin-bottom: 1.5rem;
             flex-wrap: wrap;
             gap: 0.5rem;
         }
@@ -105,7 +105,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             font-size: 1rem;
             background: rgba(0, 0, 0, 0.2);
             padding: 0.5rem 1.2rem;
@@ -169,6 +169,66 @@
             transform: scale(1.02);
         }
 
+        /* Navigation */
+        .nav-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0.8rem 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 60px;
+            margin-bottom: 1.8rem;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            flex-wrap: wrap;
+        }
+
+        body.day-mode .nav-bar {
+            background: rgba(0, 0, 0, 0.03);
+            border-color: rgba(200, 170, 120, 0.15);
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 40px;
+            padding: 0.5rem 1.5rem;
+            color: #d6eaff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        body.day-mode .nav-btn {
+            background: rgba(0, 0, 0, 0.03);
+            color: #1a2b44;
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: rgba(255, 215, 100, 0.12);
+            border-color: rgba(255, 215, 100, 0.3);
+            transform: scale(1.02);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-indicator {
+            font-size: 0.95rem;
+            color: #f5c542;
+            font-weight: 500;
+            min-width: 100px;
+            text-align: center;
+        }
+
         .question-card {
             background: rgba(0, 10, 30, 0.3);
             backdrop-filter: blur(8px);
@@ -184,6 +244,11 @@
             background: rgba(255, 248, 235, 0.55);
             border: 1px solid rgba(200, 170, 120, 0.15);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+        }
+
+        .question-card.active-card {
+            border-color: rgba(245, 197, 66, 0.4);
+            box-shadow: 0 0 30px rgba(245, 197, 66, 0.05);
         }
 
         .q-text {
@@ -381,6 +446,11 @@
             color: #f5c542;
         }
 
+        .nav-bottom {
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
         @media (max-width: 600px) {
             .app {
                 padding: 1rem;
@@ -398,6 +468,18 @@
             }
             .progress-bar-bg {
                 width: 100px;
+            }
+            .nav-bar {
+                gap: 0.8rem;
+                padding: 0.5rem 1rem;
+            }
+            .nav-btn {
+                padding: 0.4rem 1rem;
+                font-size: 0.85rem;
+            }
+            .nav-indicator {
+                min-width: 70px;
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -417,7 +499,22 @@
             <button class="reset-btn" id="resetExam"><i class="fas fa-redo-alt"></i> إعادة الاختبار</button>
         </div>
 
+        <!-- Navigation Bar (Top) -->
+        <div class="nav-bar" id="navBarTop">
+            <button class="nav-btn" id="prevBtnTop"><i class="fas fa-chevron-right"></i> السابق</button>
+            <span class="nav-indicator" id="navIndicator">السؤال 1 من 40</span>
+            <button class="nav-btn" id="nextBtnTop">التالي <i class="fas fa-chevron-left"></i></button>
+        </div>
+
         <div id="questionContainer"></div>
+
+        <!-- Navigation Bar (Bottom) -->
+        <div class="nav-bar nav-bottom" id="navBarBottom">
+            <button class="nav-btn" id="prevBtnBottom"><i class="fas fa-chevron-right"></i> السابق</button>
+            <span class="nav-indicator" id="navIndicatorBottom">السؤال 1 من 40</span>
+            <button class="nav-btn" id="nextBtnBottom">التالي <i class="fas fa-chevron-left"></i></button>
+        </div>
+
         <div id="summaryBox" class="summary-box hidden">
             <h3 style="display: flex; gap: 0.8rem; align-items: center; margin-bottom:1rem;">
                 <i class="fas fa-flag-checkered" style="color: #f5c542;"></i> مراجعة الأخطاء
@@ -428,7 +525,7 @@
 
     <script>
         (function() {
-            // ----- 40 سؤالاً مع تفسيرات (خيارات متجانسة الطول) -----
+            // ----- 40 سؤالاً (خيارات متجانسة) -----
             const questionsData = [{
                 q: "وفقاً لإسكريول، أي من الخصائص التالية تمثل الفارق الجوهري بين الجنون والإعاقة العقلية؟",
                 options: [
@@ -845,6 +942,7 @@
             let answers = new Array(questionsData.length).fill(null);
             let answerStatus = new Array(questionsData.length).fill(null);
             let isExamFinished = false;
+            let currentFocus = 0; // index of currently focused question
 
             const container = document.getElementById('questionContainer');
             const progressText = document.getElementById('progressText');
@@ -852,10 +950,9 @@
             const summaryBox = document.getElementById('summaryBox');
             const summaryContent = document.getElementById('summaryContent');
 
-            // خلط الخيارات لكل سؤال (مع الحفاظ على الإجابة الصحيحة)
+            // خلط الخيارات
             function shuffleQuestion(q) {
                 const opts = q.options.map((text, idx) => ({ text, isCorrect: idx === q.correct }));
-                // خلط
                 for (let i = opts.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [opts[i], opts[j]] = [opts[j], opts[i]];
@@ -865,13 +962,13 @@
                 return { ...q, options: newOptions, correct: newCorrect };
             }
 
-            // تطبيق الخلط على جميع الأسئلة
             const questions = questionsData.map(q => shuffleQuestion(q));
 
             // ----- Render All Questions -----
             function renderAllQuestions() {
                 if (isExamFinished) {
                     container.innerHTML = `<div class="finished-msg"><i class="fas fa-check-circle" style="color:#2ecc71;"></i> انتهى الاختبار! راجع الأخطاء في الأسفل.</div>`;
+                    updateNavButtons();
                     return;
                 }
 
@@ -880,8 +977,9 @@
                     const selected = answers[idx];
                     const status = answerStatus[idx];
                     const isAnswered = status !== null;
+                    const isActive = (idx === currentFocus);
 
-                    html += `<div class="question-card" id="qcard-${idx}">`;
+                    html += `<div class="question-card ${isActive ? 'active-card' : ''}" id="qcard-${idx}">`;
                     html += `<div class="q-text"><span style="color:#f5c542; margin-left:8px;">${idx+1}.</span> ${q.q}</div>`;
                     html += `<div class="options">`;
 
@@ -930,6 +1028,8 @@
                 });
 
                 updateProgress();
+                updateNavButtons();
+                updateIndicator();
             }
 
             function handleAnswer(qIdx, optIdx) {
@@ -994,11 +1094,54 @@
                 summaryBox.classList.remove('hidden');
             }
 
+            // ----- Navigation -----
+            function goToQuestion(index) {
+                if (isExamFinished) return;
+                if (index < 0) index = 0;
+                if (index >= questions.length) index = questions.length - 1;
+                currentFocus = index;
+                renderAllQuestions();
+                const card = document.getElementById(`qcard-${index}`);
+                if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            function nextQuestion() {
+                if (currentFocus < questions.length - 1) {
+                    goToQuestion(currentFocus + 1);
+                }
+            }
+
+            function prevQuestion() {
+                if (currentFocus > 0) {
+                    goToQuestion(currentFocus - 1);
+                }
+            }
+
+            function updateNavButtons() {
+                const btns = document.querySelectorAll('.nav-btn');
+                const isFirst = currentFocus === 0;
+                const isLast = currentFocus === questions.length - 1;
+                btns.forEach(btn => {
+                    if (btn.id.includes('Prev')) {
+                        btn.disabled = isFirst || isExamFinished;
+                    } else if (btn.id.includes('Next')) {
+                        btn.disabled = isLast || isExamFinished;
+                    }
+                });
+            }
+
+            function updateIndicator() {
+                const total = questions.length;
+                const txt = isExamFinished ? 'انتهى الاختبار' : `السؤال ${currentFocus+1} من ${total}`;
+                document.querySelectorAll('.nav-indicator').forEach(el => el.textContent = txt);
+            }
+
             // reset
             function resetExam() {
                 answers = new Array(questionsData.length).fill(null);
                 answerStatus = new Array(questionsData.length).fill(null);
                 isExamFinished = false;
+                currentFocus = 0;
                 summaryBox.classList.add('hidden');
                 // إعادة خلط الأسئلة
                 for (let i = 0; i < questions.length; i++) {
@@ -1024,9 +1167,28 @@
                 }
             }
 
-            // ----- init -----
+            // ----- Event Listeners -----
             document.getElementById('modeToggle').addEventListener('click', toggleMode);
             document.getElementById('resetExam').addEventListener('click', resetExam);
+
+            // Navigation buttons (Top and Bottom)
+            document.getElementById('prevBtnTop').addEventListener('click', prevQuestion);
+            document.getElementById('nextBtnTop').addEventListener('click', nextQuestion);
+            document.getElementById('prevBtnBottom').addEventListener('click', prevQuestion);
+            document.getElementById('nextBtnBottom').addEventListener('click', nextQuestion);
+
+            // Keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    nextQuestion();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    prevQuestion();
+                }
+            });
+
+            // ----- Init -----
             renderAllQuestions();
         })();
     </script>
